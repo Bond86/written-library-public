@@ -4,6 +4,7 @@ import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {serve} from '../scripts/serve.mjs';
 import {loadContent,extractText} from '../lib/content.mjs';
 import {plainText} from '../lib/ai-export.mjs';
+import {createHash} from 'node:crypto';
 const docs=loadContent();
 const ai=JSON.parse(readFileSync('dist/ai/index.json','utf8'));
 const site=JSON.parse(readFileSync('config/site.json','utf8'));
@@ -57,6 +58,10 @@ test('noindex is unconditional, robots preserves HTML access and no sitemap is g
   assert.doesNotMatch(html,/كلمة مكتوبة|وذاكرة ممتدة/u);
   assert.match(html,/<div id="site-content" hidden inert>/u);
   assert.doesNotMatch(html,/Sitemap:|sitemap\.xml/u);
+  for(const asset of ['site.css','site.js','visitor-gate.js']){
+   const version=createHash('sha256').update(readFileSync('dist/assets/'+asset)).digest('hex').slice(0,16);
+   assert.ok(html.includes('/assets/'+asset+'?v='+version),'Unversioned asset '+asset);
+  }
  }
  const robots=readFileSync('dist/robots.txt','utf8');
  const base=new URL(site.canonicalUrl).pathname;

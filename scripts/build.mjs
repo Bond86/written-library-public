@@ -1,6 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync,cpSync,existsSync,rmSync,lstatSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
 import {build} from 'esbuild';
 import * as pagefind from 'pagefind';
 import {loadContent,types} from '../lib/content.mjs';
@@ -25,11 +26,20 @@ const docs=loadContent();
 const sectionTotal=docs.reduce((n,d)=>n+d.sections.length,0);
 const url=path=>base+path;
 const write=(path,text)=>{mkdirSync(join(out,path,'..'),{recursive:true});writeFileSync(join(out,path),text);};
+cpSync('assets/site.css',join(out,'assets/site.css'));
+cpSync('assets/book.svg',join(out,'assets/book.svg'));
+await build({entryPoints:['assets/site.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/site.js'),minify:true});
+await build({entryPoints:['assets/visitor-gate.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/visitor-gate.js'),minify:true});
+const versions=new Map();
+function assetUrl(path){
+ if(!versions.has(path))versions.set(path,createHash('sha256').update(readFileSync(join(out,path))).digest('hex').slice(0,16));
+ return url(path)+'?v='+versions.get(path);
+}
 function shell(title,body,section='',path=''){
  return '<!doctype html><html lang="ar" dir="rtl" data-visitor-locked><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<meta name="robots" content="noindex, follow"><meta name="googlebot" content="noindex, follow"><meta name="bingbot" content="noindex, follow"><link rel="canonical" href="'+escape(new URL(path,site.canonicalUrl).href)+'">'+
  '<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'wasm-unsafe-eval\'; style-src \'self\'; img-src \'none\'; connect-src \'self\'; object-src \'none\'; base-uri \'none\'">'+
- '<title>'+escape(title)+' · '+escape(site.title)+'</title><link rel="icon" href="'+url('assets/book.svg')+'" type="image/svg+xml"><link rel="stylesheet" href="'+url('assets/site.css')+'"><script type="module" src="'+url('assets/visitor-gate.js')+'"></script><script type="module" src="'+url('assets/site.js')+'"></script></head><body data-base="'+base+'">'+
+ '<title>'+escape(title)+' · '+escape(site.title)+'</title><link rel="icon" href="'+assetUrl('assets/book.svg')+'" type="image/svg+xml"><link rel="stylesheet" href="'+assetUrl('assets/site.css')+'"><script type="module" src="'+assetUrl('assets/visitor-gate.js')+'"></script><script type="module" src="'+assetUrl('assets/site.js')+'"></script></head><body data-base="'+base+'">'+
  '<section id="visitor-gate" class="visitor-screen" aria-labelledby="visitor-title" data-verifier="'+visitor.sha256+'"><div class="visitor-card"><span class="eyebrow">أهلًا بك في الأرشيف</span><h1 id="visitor-title">'+escape(site.title)+'</h1><p>أدخل رمز الزيارة لفتح واجهة القراءة.</p><form id="visitor-form" autocomplete="off"><label for="visitor-passphrase">رمز الزيارة</label><input id="visitor-passphrase" type="password" required maxlength="200" autocomplete="off" aria-describedby="visitor-message"><button type="submit" disabled>دخول الأرشيف</button><p id="visitor-message" role="status" aria-live="polite"></p></form><p class="visitor-notice">هذه بوابة زيارة بسيطة وليست حماية أمنية. محتوى الأرشيف متاح علنًا.</p><a href="'+url('ai/index.json')+'">فهرس النصوص العامة للقراءة الآلية</a><noscript><p>يتطلب فتح الواجهة JavaScript؛ ملفات النصوص العامة لا تحتاج إليه.</p></noscript></div></section>'+
  '<div id="site-content" hidden inert><a class="skip" href="#main">إلى المحتوى</a><header><a class="brand" href="'+base+'"><span class="brand-icon" aria-hidden="true">م</span><span>'+escape(site.title)+'<small>مقالات · محاضرات · كتب</small></span></a><nav aria-label="أقسام المكتبة">'+Object.entries(types).map(([k,v])=>'<a href="'+url(k+'/')+'"'+(section===k?' aria-current="page"':'')+'>'+v+'</a>').join('')+'<a href="'+url('search/')+'">البحث</a><button type="button" class="visitor-lock" data-visitor-lock>قفل الواجهة</button></nav></header>'+
  '<main id="main" tabindex="-1">'+body+'</main><footer>'+escape(site.title)+' · <a href="'+url('ai/index.json')+'">النصوص العامة</a></footer></div></body></html>';
@@ -70,10 +80,6 @@ for(const doc of docs){
 }
 await index.writeFiles({outputPath:join(out,'pagefind')});
 await pagefind.close();
-cpSync('assets/site.css',join(out,'assets/site.css'));
-cpSync('assets/book.svg',join(out,'assets/book.svg'));
-await build({entryPoints:['assets/site.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/site.js'),minify:true});
-await build({entryPoints:['assets/visitor-gate.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/visitor-gate.js'),minify:true});
 await build({entryPoints:['tools/editor.mjs'],bundle:true,format:'iife',outfile:'tools/editor.bundle.js'});
 exportAi(docs,write,site);
 write('robots.txt','# HTML must remain crawlable for noindex meta directives.\n# Install at the HOST ROOT to have crawler effect; see ACCESS-AND-INDEXING.md.\n'+
