@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import {writeFileSync,readFileSync} from 'node:fs';
+import {build} from 'esbuild';
+import {serve} from '../scripts/serve.mjs';
+import {browser} from './chrome.mjs';
+import {cleanHtml} from '../lib/text.mjs';
+
+const base=JSON.parse(readFileSync('audit/build.json','utf8')).base;
+const {outputFiles}=await build({stdin:{contents:"export {normalize} from './lib/text.mjs';export {presentResult} from './lib/search.mjs';",resolveDir:process.cwd()},write:false,bundle:true,format:'esm'});
+const fixture=cleanHtml('<h2>جدول عربي</h2><p><a href="#_ftn1">١</a></p><table><tr><th>العمود الأول</th><th>العمود الثاني</th></tr>'+Array.from({length:25},(_,i)=>'<tr><td>خلية عربية '+i+'</td><td><strong>إيمان</strong></td></tr>').join('')+'</table><p id="_ftn1">حاشية تجريبية</p><script>window.bad=true</script>').html;
+const server=await serve('dist',0,async(url,req,res)=>{
+ if(url.pathname===base+'__test-lib.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(outputFiles[0].text);return true;}
+ if(url.pathname===base+'__editor-bundle.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(readFileSync('tools/editor.bundle.js'));return true;}
+ if(url.pathname===base+'__editor/'){
+  const html=readFileSync('tools/editor.html','utf8').replace('../assets/site.css',base+'assets/site.css').replace('editor.bundle.js',base+'__editor-bundle.js');
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end(html);return true;
+ }
+ if(url.pathname===base+'__fixture/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end('<html lang="ar" dir="rtl"><link rel="stylesheet" href="'+base+'assets/site.css"><body><main><article class="prose panel">'+fixture+'</article></main></body></html>');return true;}
+ if(base!=='/'&&url.pathname.startsWith(base))url.pathname='/'+url.pathname.slice(base.length);
+ return false;
+});
+const origin='http://127.0.0.1:'+server.address().port;
+const chrome=await browser();
+const screenshots=[];
+const waitFor=async expression=>{
+ for(let i=0;i<200;i++){
+  if(await chrome.evaluate(expression))return;
+  await new Promise(r=>setTimeout(r,100));
+ }
+ throw Error('Browser condition timed out '+expression);
+};
+try{
+ await chrome.navigate(origin+base);
+ const results=await chrome.evaluate("(async()=>{\n const base=document.body.dataset.base;\n const {normalize,presentResult}=await import(base+'__test-lib.js');\n const pf=await import(base+'pagefind/pagefind.js');\n await pf.options({baseUrl:base,excerptLength:24});\n const check=(ok,message)=>{if(!ok)throw Error(message);};\n const ids=async(q,options)=> (await pf.search(normalize(q),options)).results.map(r=>r.id).sort();\n for(const [a,b] of [['أب','اب'],['إيمان','ايمان'],['وُلدت','ولدت'],['الـكـتـاب','الكتاب'],['ٱلإيمان','الايمان'],['آدم','ادم']]){\n  const left=await ids(a),right=await ids(b);\n  check(left.length>0,'No real hits '+a);\n  check(JSON.stringify(left)===JSON.stringify(right),'Normalization differs '+a);\n }\n const q=await pf.search(normalize('\"صمت الدارسين عبرة\"'));\n check(q.results.length>0,'Long chapter phrase missing');\n const bodies=await Promise.all(q.results.map(r=>r.data()));\n const item=bodies.find(d=>d.url.includes('/d545/s584/'));\n check(item,'Expected section 584 missing');\n const display=presentResult(item);\n check(display.snippetHtml.includes('<mark>'),'Missing original-text highlight');\n check(display.anchor==='passage-91','Wrong phrase anchor '+display.anchor);\n check(display.snippetHtml.includes('الدارسين'),'Original snippet missing');\n const quote=await pf.search(normalize('\"توجيهات أب اعترافي\"'),{filters:{type:'book'}});\n check(quote.results.length>0,'Book quote missing');\n const found=await Promise.all(quote.results.map(r=>r.data()));\n check(found.every(d=>d.meta.type==='book'),'Type filter leaked');\n check(found.some(d=>presentResult(d).snippetHtml.includes('أب')),'Original Alef spelling missing');\n const excluded=await pf.search(normalize('\"توجيهات أب اعترافي\"'),{filters:{type:'article'}});\n check(excluded.results.length===0,'Book phrase appeared in articles');\n const title=await pf.search(normalize('\"كتاب بين العهدين\"'));\n check(title.results.length>=15,'Book title does not cover chapters');\n const authors=await pf.search(normalize('محاكمة البابا شنودة'));\n check(authors.results.length>0,'Multiword query missing');\n return {normalizationPairs:6,longPhraseSection:item.url,anchor:display.anchor,phraseResults:q.results.length,bookTitleResults:title.results.length};\n})()");
+ console.log('Real Pagefind WASM tests '+JSON.stringify(results));
+ await chrome.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ await chrome.navigate(origin+base+'search/?q='+encodeURIComponent('إيمان')+'&type=book');
+ await waitFor('document.querySelectorAll(".search-hit").length>0');
+ const ui=await chrome.evaluate("({marks:document.querySelectorAll('.search-hit mark').length,links:[...document.querySelectorAll('.search-hit h2 a')].map(a=>a.getAttribute('href')),width:document.documentElement.scrollWidth,viewport:innerWidth})");
+ assert.ok(ui.marks>0);
+ assert.ok(ui.links.every(link=>link.includes('/documents/')&&link.includes('#passage-')));
+ assert.ok(ui.width<=ui.viewport+1);
+ await chrome.navigate(origin+base);
+ assert.ok(await chrome.evaluate("document.documentElement.scrollWidth<=innerWidth+1"));
+ const shot=await chrome.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+ writeFileSync('test-output/mobile-home.png',Buffer.from(shot.data,'base64'));screenshots.push('mobile-home.png');
+ await chrome.navigate(origin+base+'documents/d545/s584/?q='+encodeURIComponent('صمت الدارسين عبرة')+'#passage-91');
+ assert.ok(await chrome.evaluate("document.querySelector('.prose').textContent.includes('صمت الدارسين عبرة')"));
+ assert.ok(await chrome.evaluate("document.querySelector('.prose').textContent.length>10000"));
+ assert.ok(await chrome.evaluate("document.querySelectorAll('.prose mark').length>0"));
+ assert.ok(await chrome.evaluate("document.documentElement.scrollWidth<=innerWidth+1"));
+ const reader=await chrome.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+ writeFileSync('test-output/mobile-reader.png',Buffer.from(reader.data,'base64'));screenshots.push('mobile-reader.png');
+ await chrome.navigate(origin+base+'__fixture/');
+ assert.equal(await chrome.evaluate("document.querySelectorAll('table tr').length"),26);
+ assert.ok(await chrome.evaluate("document.querySelector('a').hash==='#note-_ftn1'&&!!document.getElementById('note-_ftn1')"));
+ assert.ok(await chrome.evaluate("!window.bad&&document.documentElement.scrollWidth<=innerWidth+1"));
+ console.log('Mobile 390px UI, long chapter, snippets, matching anchors, table and footnote passed.');
+ await chrome.navigate(origin+base+'__editor/');
+ const edited=await chrome.evaluate(`(async()=>{
+  document.querySelector('#new-document').click();
+  document.querySelector('#title').value='مقال تجريبي';
+  document.querySelector('#author').value='مؤلف تجريبي';
+  const transfer=new DataTransfer();
+  transfer.setData('text/html','<h2 onclick="bad()">عنوان</h2><p><strong>نص عربي</strong></p><table><tr><td>خلية</td></tr></table><script>window.bad=true</script>');
+  const rich=document.querySelector('#rich');rich.focus();
+  rich.dispatchEvent(new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true}));
+  if(!rich.querySelector('table')||rich.querySelector('script,[onclick]'))throw Error('Word paste sanitization failed');
+  HTMLAnchorElement.prototype.click=function(){};
+  const create=URL.createObjectURL.bind(URL);
+  URL.createObjectURL=function(blob){window.savedBlob=blob;return create(blob);};
+  document.querySelector('#save-section').click();
+  const section=await window.savedBlob.text();
+  document.querySelector('#save-metadata').click();
+  const metadata=JSON.parse(await window.savedBlob.text());
+  if(!section.includes('نص عربي')||metadata.title!=='مقال تجريبي'||metadata.sections.length!==1)throw Error('Editor export failed');
+  document.querySelector('#new-section').click();
+  document.querySelector('#section-heading').value='فصل ثانٍ';
+  document.querySelector('#type').value='book';
+  document.querySelector('#save-metadata').click();
+  const book=JSON.parse(await window.savedBlob.text());
+  if(book.type!=='book'||book.sections.length!==2||book.sections[1].heading!=='فصل ثانٍ')throw Error('Chapter metadata failed');
+  return {newDocument:true,wordPaste:true,sanitization:true,newChapter:true};
+ })()`);
+ console.log('Local nontechnical editor '+JSON.stringify(edited));
+ writeFileSync('test-output/browser-report.json',JSON.stringify({base,search:results,mobileWidth:390,screenshots,status:'PASS'},null,2));
+}finally{await chrome.close();server.close();}
+

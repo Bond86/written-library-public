@@ -1,0 +1,25 @@
+{
+  "id": 602,
+  "type": "lecture",
+  "title": "الحرية والعبودية",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": "دراسة رسالة رومية",
+  "sections": [
+    {
+      "id": 656,
+      "file": "s656.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 657,
+      "file": "s657.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

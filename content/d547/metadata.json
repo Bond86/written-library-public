@@ -1,0 +1,25 @@
+{
+  "id": 547,
+  "type": "lecture",
+  "title": "الصليب والقيامة",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": "القيامة، الصليب والفداء",
+  "sections": [
+    {
+      "id": 587,
+      "file": "s587.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 588,
+      "file": "s588.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

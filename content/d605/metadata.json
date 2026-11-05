@@ -1,0 +1,25 @@
+{
+  "id": 605,
+  "type": "lecture",
+  "title": "السقوط واعادة الخلق",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": null,
+  "sections": [
+    {
+      "id": 660,
+      "file": "s660.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 661,
+      "file": "s661.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

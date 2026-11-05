@@ -1,0 +1,25 @@
+{
+  "id": 581,
+  "type": "lecture",
+  "title": "هل توجد خطية اصلية؟",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": "دراسة رسالة رومية",
+  "sections": [
+    {
+      "id": 633,
+      "file": "s633.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 634,
+      "file": "s634.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

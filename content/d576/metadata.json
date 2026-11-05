@@ -1,0 +1,25 @@
+{
+  "id": 576,
+  "type": "lecture",
+  "title": "لماذا خلق الله الإنسان",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": null,
+  "sections": [
+    {
+      "id": 626,
+      "file": "s626.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 627,
+      "file": "s627.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": 554,
+  "type": "lecture",
+  "title": "اين شوكتك يا موت؟",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": null,
+  "sections": [
+    {
+      "id": 597,
+      "file": "s597.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 598,
+      "file": "s598.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": 545,
+  "type": "book",
+  "title": "محاكمة البابا شنودة على الإنترنت",
+  "author": "طارق ميخائيل",
+  "date": null,
+  "category": null,
+  "tags": "الإفخارستيا، التأله، الشركة، مراجع لاهوتية",
+  "sections": [
+    {
+      "id": 583,
+      "file": "s583.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 584,
+      "file": "s584.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    },
+    {
+      "id": 585,
+      "file": "s585.html",
+      "chapter": null,
+      "heading": "متابعة النص 3",
+      "position": 3
+    }
+  ]
+}

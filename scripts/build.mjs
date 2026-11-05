@@ -1,0 +1,72 @@
+import {mkdirSync,writeFileSync,readFileSync,cpSync,existsSync,rmSync,lstatSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {build} from 'esbuild';
+import * as pagefind from 'pagefind';
+import {loadContent,types} from '../lib/content.mjs';
+import {escape,normalize} from '../lib/text.mjs';
+
+const project=resolve(fileURLToPath(new URL('../',import.meta.url)));
+if(resolve('.')!==project)throw Error('Run the build from this project directory.');
+const out=resolve(project,'dist');
+if(existsSync(out)&&lstatSync(out).isSymbolicLink())throw Error('Refusing a linked build directory.');
+if(existsSync(out))rmSync(out,{recursive:true});
+mkdirSync(out);
+const base=(process.env.SITE_BASE||'/').replace(/\/?$/u,'/');
+if(!/^\/(?:[a-zA-Z0-9._-]+\/)*$/u.test(base))throw Error('SITE_BASE must be a site path with a trailing slash');
+const docs=loadContent();
+const sectionTotal=docs.reduce((n,d)=>n+d.sections.length,0);
+const url=path=>base+path;
+const write=(path,text)=>{mkdirSync(join(out,path,'..'),{recursive:true});writeFileSync(join(out,path),text);};
+function shell(title,body,section=''){
+ return '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+ '<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'wasm-unsafe-eval\'; style-src \'self\'; img-src \'none\'; connect-src \'self\'; object-src \'none\'; base-uri \'none\'">'+
+ '<title>'+escape(title)+' · مكتبة الكلمة</title><link rel="icon" href="'+url('assets/book.svg')+'" type="image/svg+xml"><link rel="stylesheet" href="'+url('assets/site.css')+'"><script type="module" src="'+url('assets/site.js')+'"></script></head><body data-base="'+base+'">'+
+ '<a class="skip" href="#main">إلى المحتوى</a><header><a class="brand" href="'+base+'"><span class="brand-icon" aria-hidden="true">ك</span><span>مكتبة الكلمة<small>نصوص تحفظ الذاكرة</small></span></a><nav aria-label="أقسام المكتبة">'+Object.entries(types).map(([k,v])=>'<a href="'+url(k+'/')+'"'+(section===k?' aria-current="page"':'')+'>'+v+'</a>').join('')+'<a href="'+url('search/')+'">البحث</a></nav></header>'+
+ '<main id="main">'+body+'</main><footer>مكتبة عربية للمقالات والمحاضرات والكتب</footer></body></html>';
+}
+const cards=items=>'<div class="catalog">'+items.map(d=>'<article class="card"><span class="eyebrow">'+types[d.type]+'</span><h2><a href="'+url('documents/d'+d.id+'/')+'">'+escape(d.title)+'</a></h2><p>'+escape(d.author)+'</p><span class="card-bottom">'+(d.sections.length>1?d.sections.length+' أقسام':'اقرأ النص')+' <span aria-hidden="true">←</span></span></article>').join('')+'</div>';
+const searchForm=(full=false)=>'<form action="'+url('search/')+'" class="search-form"'+(full?' id="search-form"':'')+'><label for="q">ابحث في نصوص المكتبة</label><div class="search-row"><input id="q" name="q" type="search" maxlength="140" placeholder="عنوان، فكرة، أو عبارة من النص…" autocomplete="off"><select name="type" aria-label="نوع المحتوى"><option value="">كل الأقسام</option>'+Object.entries(types).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('')+'</select><button>بحث</button></div></form>';
+write('index.html',shell('المكتبة','<section class="hero"><span class="eyebrow">أرشيف للقراءة والبحث</span><h1>كلمة مكتوبة،<br>وذاكرة ممتدة.</h1><p>مقالات ومحاضرات وكتب للقراءة والتأمل، مع بحث داخل النص العربي الكامل.</p>'+searchForm()+'</section><div class="section-heading"><h2>تصفّح المكتبة</h2><span>'+docs.length+' مادة · '+sectionTotal+' قسمًا</span></div><div class="type-grid">'+Object.entries(types).map(([k,v],i)=>'<a href="'+url(k+'/')+'"><span class="type-number">0'+(i+1)+'</span><h2>'+v+'</h2><span>'+docs.filter(d=>d.type===k).length+' مادة <span aria-hidden="true">←</span></span></a>').join('')+'</div><div class="section-heading"><h2>من المكتبة</h2><a href="'+url('search/')+'">ابحث عن مادة</a></div>'+cards(docs.filter(d=>d.type==='book').concat(docs.filter(d=>d.type==='article').slice(0,3)))));
+for(const [type,label] of Object.entries(types)){
+ const group=docs.filter(d=>d.type===type);
+ write(type+'/index.html',shell(label,'<div class="page-heading"><span class="eyebrow">أقسام المكتبة</span><h1>'+label+'</h1><p>'+group.length+' مادة متاحة للقراءة</p></div>'+cards(group),type));
+}
+write('search/index.html',shell('بحث المكتبة','<div class="page-heading"><span class="eyebrow">البحث في النص الكامل</span><h1>ما الذي تبحث عنه؟</h1><p>ابحث في المقالات والمحاضرات والكتب، واختر القسم المناسب.</p></div>'+searchForm(true)+'<p id="search-status" role="status" aria-live="polite">اكتب كلمة أو عبارة للبحث.</p><div id="results" class="search-results"></div><button id="more-results" hidden>عرض المزيد</button><noscript>يلزم تفعيل JavaScript لاستخدام البحث. يمكنك قراءة الأقسام من روابط التصفح.</noscript>'));
+const {index,errors}=await pagefind.createIndex({forceLanguage:'ar',writePlayground:false});
+if(errors?.length)throw Error(errors.join('\n'));
+for(const doc of docs){
+ const directory='documents/d'+doc.id+'/';
+ const toc='<ol class="toc">'+doc.sections.map(s=>'<li><a href="'+url(directory+'s'+s.id+'/')+'">'+escape(s.chapter&&s.chapter!==s.heading?s.chapter+' · '+s.heading:s.heading)+'</a></li>').join('')+'</ol>';
+ write(directory+'index.html',shell(doc.title,'<nav class="breadcrumbs" aria-label="مسار القراءة"><a href="'+url(doc.type+'/')+'">'+types[doc.type]+'</a><span> / </span><span>'+escape(doc.title)+'</span></nav><div class="page-heading"><span class="eyebrow">'+types[doc.type]+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(doc.author)+(doc.date?' · '+escape(doc.date):'')+'</p></div><section class="panel"><h2>'+(doc.sections.length>1?'فهرس المحتويات':'النص')+'</h2>'+toc+'</section>',doc.type));
+ for(const [position,s] of doc.sections.entries()){
+  const path=directory+'s'+s.id+'/';
+  const html=shell(doc.title+' · '+s.heading,
+   '<nav class="breadcrumbs" aria-label="مسار القراءة"><a href="'+url(doc.type+'/')+'">'+types[doc.type]+'</a><span> / </span><a href="'+url(directory)+'">'+escape(doc.title)+'</a></nav>'+
+   '<div class="reader-heading"><span class="eyebrow">'+escape(doc.author)+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(s.heading)+'</p></div>'+
+   '<div class="reader-layout"><aside class="reader-toc panel"><details open><summary>فهرس المحتويات</summary>'+toc+'</details></aside><div><div class="reading-tools"><span>حجم الخط</span><button type="button" data-font="-1" aria-label="تصغير الخط">أ−</button><button type="button" data-font="1" aria-label="تكبير الخط">أ+</button></div>'+
+   '<article class="prose panel" id="section-'+s.id+'">'+s.html+'</article><nav class="chapter-nav" aria-label="تنقل الأقسام">'+
+   (position>0?'<a href="'+url(directory+'s'+doc.sections[position-1].id+'/')+'">→ القسم السابق</a>':'<span></span>')+
+   '<a href="'+url(directory)+'">الفهرس</a>'+
+   (position<doc.sections.length-1?'<a href="'+url(directory+'s'+doc.sections[position+1].id+'/')+'">القسم التالي ←</a>':'<span></span>')+'</nav></div></div>',doc.type);
+  write(path+'index.html',html);
+  const prefix=[doc.title,doc.author,s.heading,s.chapter||''].filter(Boolean).join(' ')+' ';
+  const original=prefix+s.text;
+  const added=await index.addCustomRecord({url:'/'+path,content:normalize(original),language:'ar',
+   meta:{title:normalize(doc.title),display_title:doc.title,heading:s.heading,type:doc.type,original,
+    anchors:JSON.stringify(s.anchors.map(([at,anchor])=>[at+prefix.length,anchor]))},
+   filters:{type:[doc.type]}});
+  if(added.errors?.length)throw Error(added.errors.join('\n'));
+ }
+}
+await index.writeFiles({outputPath:join(out,'pagefind')});
+await pagefind.close();
+cpSync('assets/site.css',join(out,'assets/site.css'));
+cpSync('assets/book.svg',join(out,'assets/book.svg'));
+await build({entryPoints:['assets/site.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/site.js'),minify:true});
+await build({entryPoints:['tools/editor.mjs'],bundle:true,format:'iife',outfile:'tools/editor.bundle.js'});
+write('.nojekyll','');
+mkdirSync('audit',{recursive:true});
+writeFileSync('audit/build.json',JSON.stringify({documents:docs.length,sections:sectionTotal,base,generated:new Date().toISOString()},null,2));
+console.log('Built '+docs.length+' documents and '+sectionTotal+' indexed section pages.');
+

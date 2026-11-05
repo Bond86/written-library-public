@@ -1,0 +1,25 @@
+{
+  "id": 110,
+  "type": "lecture",
+  "title": "كورس في البدء كان الكلمة | المحاضرة الخامسة | لأني نزلت من السماء",
+  "author": "الأنبا مكسيموس",
+  "date": "2025-05-19",
+  "category": null,
+  "tags": "تعاليم الآباء، في البدء كان الكلمة، تفريغ محاضرة",
+  "sections": [
+    {
+      "id": 110,
+      "file": "s110.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 111,
+      "file": "s111.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

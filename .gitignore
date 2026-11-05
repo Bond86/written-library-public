@@ -1,0 +1,9 @@
+node_modules/
+dist/
+audit/
+.env*
+*.sqlite*
+*.pem
+*.key
+test-output/
+tools/editor.bundle.js

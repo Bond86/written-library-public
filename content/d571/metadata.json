@@ -1,0 +1,25 @@
+{
+  "id": 571,
+  "type": "lecture",
+  "title": "حياة الصلاة | الروحانية الأرثوذكسية | المحاضرة السادسة",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": "الروحانية الأرثوذكسية",
+  "sections": [
+    {
+      "id": 619,
+      "file": "s619.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 620,
+      "file": "s620.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}

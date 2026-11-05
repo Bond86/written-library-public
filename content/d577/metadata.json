@@ -1,0 +1,25 @@
+{
+  "id": 577,
+  "type": "lecture",
+  "title": "ليس هو ها هنا لكنه قام",
+  "author": "الأنبا مكسيموس",
+  "date": null,
+  "category": null,
+  "tags": null,
+  "sections": [
+    {
+      "id": 628,
+      "file": "s628.html",
+      "chapter": null,
+      "heading": "النص",
+      "position": 1
+    },
+    {
+      "id": 629,
+      "file": "s629.html",
+      "chapter": null,
+      "heading": "متابعة النص 2",
+      "position": 2
+    }
+  ]
+}
