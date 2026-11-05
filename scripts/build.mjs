@@ -7,6 +7,7 @@ import * as pagefind from 'pagefind';
 import {loadContent,types} from '../lib/content.mjs';
 import {escape,normalize} from '../lib/text.mjs';
 import {exportAi} from '../lib/ai-export.mjs';
+import {bookNavigation,bookOverview,bookReader} from '../lib/book-navigation.mjs';
 
 const project=resolve(fileURLToPath(new URL('../',import.meta.url)));
 if(resolve('.')!==project)throw Error('Run the build from this project directory.');
@@ -26,7 +27,8 @@ const docs=loadContent();
 const sectionTotal=docs.reduce((n,d)=>n+d.sections.length,0);
 const url=path=>base+path;
 const write=(path,text)=>{mkdirSync(join(out,path,'..'),{recursive:true});writeFileSync(join(out,path),text);};
-cpSync('assets/site.css',join(out,'assets/site.css'));
+mkdirSync(join(out,'assets'),{recursive:true});
+writeFileSync(join(out,'assets/site.css'),readFileSync('assets/site.css','utf8')+'\n'+readFileSync('assets/books.css','utf8'));
 cpSync('assets/book.svg',join(out,'assets/book.svg'));
 await build({entryPoints:['assets/site.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/site.js'),minify:true});
 await build({entryPoints:['assets/visitor-gate.mjs'],bundle:true,format:'esm',outfile:join(out,'assets/visitor-gate.js'),minify:true});
@@ -44,7 +46,7 @@ function shell(title,body,section='',path=''){
  '<div id="site-content" hidden inert><a class="skip" href="#main">إلى المحتوى</a><header><a class="brand" href="'+base+'"><span class="brand-icon" aria-hidden="true">م</span><span>'+escape(site.title)+'<small>مقالات · محاضرات · كتب</small></span></a><nav aria-label="أقسام المكتبة">'+Object.entries(types).map(([k,v])=>'<a href="'+url(k+'/')+'"'+(section===k?' aria-current="page"':'')+'>'+v+'</a>').join('')+'<a href="'+url('search/')+'">البحث</a><button type="button" class="visitor-lock" data-visitor-lock>قفل الواجهة</button></nav></header>'+
  '<main id="main" tabindex="-1">'+body+'</main><footer>'+escape(site.title)+' · <a href="'+url('ai/index.json')+'">النصوص العامة</a></footer></div></body></html>';
 }
-const cards=items=>'<div class="catalog">'+items.map(d=>'<article class="card"><span class="eyebrow">'+types[d.type]+'</span><h2><a href="'+url('documents/d'+d.id+'/')+'">'+escape(d.title)+'</a></h2><p>'+escape(d.author)+'</p><span class="card-bottom">'+(d.sections.length>1?d.sections.length+' أقسام':'اقرأ النص')+' <span aria-hidden="true">←</span></span></article>').join('')+'</div>';
+const cards=items=>'<div class="catalog">'+items.map(d=>'<article class="card'+(d.type==='book'?' book-shelf-card':'')+'"><span class="eyebrow">'+types[d.type]+'</span><h2><a href="'+url('documents/d'+d.id+'/')+'">'+escape(d.title)+'</a></h2><p>'+escape(d.author)+'</p><span class="card-bottom">'+(d.sections.length>1?d.sections.length+' أجزاء للقراءة':'اقرأ النص')+' <span aria-hidden="true">←</span></span></article>').join('')+'</div>';
 const searchForm=(full=false)=>'<form action="'+url('search/')+'" class="search-form"'+(full?' id="search-form"':'')+'><label for="q">ابحث في نصوص المكتبة</label><div class="search-row"><input id="q" name="q" type="search" maxlength="140" placeholder="عنوان، فكرة، أو عبارة من النص…" autocomplete="off"><select name="type" aria-label="نوع المحتوى"><option value="">كل الأقسام</option>'+Object.entries(types).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('')+'</select><button>بحث</button></div></form>';
 write('index.html',shell('الأرشيف','<section class="hero"><span class="eyebrow">أرشيف للقراءة والبحث</span><h1>'+escape(site.title)+'</h1><p>مقالات ومحاضرات وكتب للقراءة والتأمل، مع بحث داخل النص العربي الكامل.</p>'+searchForm()+'</section><div class="section-heading"><h2>تصفّح المكتبة</h2><span>'+docs.length+' مادة · '+sectionTotal+' قسمًا</span></div><div class="type-grid">'+Object.entries(types).map(([k,v],i)=>'<a href="'+url(k+'/')+'"><span class="type-number">0'+(i+1)+'</span><h2>'+v+'</h2><span>'+docs.filter(d=>d.type===k).length+' مادة <span aria-hidden="true">←</span></span></a>').join('')+'</div><div class="section-heading"><h2>من المكتبة</h2><a href="'+url('search/')+'">ابحث عن مادة</a></div>'+cards(docs.filter(d=>d.type==='book').concat(docs.filter(d=>d.type==='article').slice(0,3)))));
 for(const [type,label] of Object.entries(types)){
@@ -56,18 +58,19 @@ const {index,errors}=await pagefind.createIndex({forceLanguage:'ar',writePlaygro
 if(errors?.length)throw Error(errors.join('\n'));
 for(const doc of docs){
  const directory='documents/d'+doc.id+'/';
+ const book=doc.type==='book'?bookNavigation(doc):null;
  const toc='<ol class="toc">'+doc.sections.map(s=>'<li><a href="'+url(directory+'s'+s.id+'/')+'">'+escape(s.chapter&&s.chapter!==s.heading?s.chapter+' · '+s.heading:s.heading)+'</a></li>').join('')+'</ol>';
- write(directory+'index.html',shell(doc.title,'<nav class="breadcrumbs" aria-label="مسار القراءة"><a href="'+url(doc.type+'/')+'">'+types[doc.type]+'</a><span> / </span><span>'+escape(doc.title)+'</span></nav><div class="page-heading"><span class="eyebrow">'+types[doc.type]+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(doc.author)+(doc.date?' · '+escape(doc.date):'')+'</p></div><section class="panel"><h2>'+(doc.sections.length>1?'فهرس المحتويات':'النص')+'</h2>'+toc+'</section>',doc.type,directory));
+ write(directory+'index.html',shell(doc.title,'<nav class="breadcrumbs" aria-label="مسار القراءة"><a href="'+url(doc.type+'/')+'">'+types[doc.type]+'</a><span> / </span><span>'+escape(doc.title)+'</span></nav>'+(book?bookOverview(doc,book,url):'<div class="page-heading"><span class="eyebrow">'+types[doc.type]+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(doc.author)+(doc.date?' · '+escape(doc.date):'')+'</p></div><section class="panel"><h2>'+(doc.sections.length>1?'فهرس المحتويات':'النص')+'</h2>'+toc+'</section>'),doc.type,directory));
  for(const [position,s] of doc.sections.entries()){
   const path=directory+'s'+s.id+'/';
   const html=shell(doc.title+' · '+s.heading,
    '<nav class="breadcrumbs" aria-label="مسار القراءة"><a href="'+url(doc.type+'/')+'">'+types[doc.type]+'</a><span> / </span><a href="'+url(directory)+'">'+escape(doc.title)+'</a></nav>'+
-   '<div class="reader-heading"><span class="eyebrow">'+escape(doc.author)+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(s.heading)+'</p></div>'+
+   (book?bookReader(doc,book,position,url):'<div class="reader-heading"><span class="eyebrow">'+escape(doc.author)+'</span><h1>'+escape(doc.title)+'</h1><p>'+escape(s.heading)+'</p></div>'+
    '<div class="reader-layout"><aside class="reader-toc panel"><details open><summary>فهرس المحتويات</summary>'+toc+'</details></aside><div><div class="reading-tools"><span>حجم الخط</span><button type="button" data-font="-1" aria-label="تصغير الخط">أ−</button><button type="button" data-font="1" aria-label="تكبير الخط">أ+</button></div>'+
    '<article class="prose panel" id="section-'+s.id+'">'+s.html+'</article><nav class="chapter-nav" aria-label="تنقل الأقسام">'+
    (position>0?'<a href="'+url(directory+'s'+doc.sections[position-1].id+'/')+'">→ القسم السابق</a>':'<span></span>')+
    '<a href="'+url(directory)+'">الفهرس</a>'+
-   (position<doc.sections.length-1?'<a href="'+url(directory+'s'+doc.sections[position+1].id+'/')+'">القسم التالي ←</a>':'<span></span>')+'</nav></div></div>',doc.type,path);
+   (position<doc.sections.length-1?'<a href="'+url(directory+'s'+doc.sections[position+1].id+'/')+'">القسم التالي ←</a>':'<span></span>')+'</nav></div></div>'),doc.type,path);
   write(path+'index.html',html);
   const prefix=[doc.title,doc.author,s.heading,s.chapter||''].filter(Boolean).join(' ')+' ';
   const original=prefix+s.text;

@@ -1,5 +1,6 @@
 import {normalize} from '../lib/text.mjs';
 import {presentResult} from '../lib/search.mjs';
+import './book-reader.mjs';
 
 const base=document.body.dataset.base;
 const form=document.querySelector('#search-form');
