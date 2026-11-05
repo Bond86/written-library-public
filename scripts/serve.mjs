@@ -17,7 +17,10 @@ export function serve(root='dist',port=0,extra){
    const ext=target.slice(target.lastIndexOf('.'));
    res.writeHead(200,{'Content-Type':mime[ext]||'application/octet-stream','Cache-Control':'no-store'});
    res.end(await readFile(target));
-  }catch{res.writeHead(404);res.end('Not found');}
+  }catch{
+   try{const page=await readFile(resolve(directory,'404.html'));res.writeHead(404,{'Content-Type':'text/html; charset=utf-8'});res.end(page);}
+   catch{res.writeHead(404);res.end('Not found');}
+  }
  });
  return new Promise(resolveReady=>server.listen(port,'127.0.0.1',()=>resolveReady(server)));
 }

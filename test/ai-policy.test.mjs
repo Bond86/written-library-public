@@ -88,6 +88,8 @@ test('AI text and JSON return directly without JS, cookies or visitor authorizat
    assert.equal(text.status,200);assert.match(text.headers.get('content-type'),/text\/plain; charset=utf-8/u);
    assert.equal(text.headers.get('set-cookie'),null);
    assert.ok((await text.text()).includes('صمت الدارسين عبرة'));
+   const page=await fetch(origin+'/ai/pages/d543-p15.txt',{headers});assert.equal(page.status,200);assert.match(page.headers.get('content-type'),/text\/plain; charset=utf-8/u);
   }
+  const missing=await fetch(origin+'/missing-page');assert.equal(missing.status,404);assert.ok((await missing.text()).includes('لم نعثر على هذه الصفحة'));
  }finally{await new Promise(resolve=>server.close(resolve));}
 });

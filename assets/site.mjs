@@ -24,12 +24,12 @@ if(form){
   for(const item of data){
    const display=presentResult(item);
    const article=document.createElement('article');article.className='search-hit';
-   const small=document.createElement('small');small.textContent=labels[item.meta.type]+' · '+item.meta.heading;
+   const small=document.createElement('small');small.textContent=labels[item.meta.type]+' · '+(display.pageNumber?'صفحة '+String(display.pageNumber).replace(/\d/gu,d=>'٠١٢٣٤٥٦٧٨٩'[Number(d)]):item.meta.heading);
    const heading=document.createElement('h2'),link=document.createElement('a');
-   const href=new URL(item.url,location.origin);
+   const href=new URL(display.pageUrl||item.url,location.origin);
    if(href.origin!==location.origin||!href.pathname.startsWith(base))continue;
    href.searchParams.set('q',query.value);
-   if(display.anchor)href.hash=display.anchor;
+   if(display.pageAnchor||display.anchor)href.hash=display.pageAnchor||display.anchor;
    link.href=href.href;link.textContent=display.title;heading.append(link);
    const snippet=document.createElement('p');snippet.innerHTML=display.snippetHtml;
    article.append(small,heading,snippet);list.append(article);
@@ -51,7 +51,7 @@ if(form){
    const response=await api.search(normalize(text),options);
    if(current!==request)return;
    results=response.results;offset=0;
-   status.textContent=results.length?'عُثر على '+results.length+' قسمًا مطابقًا.':'لا توجد نتائج مطابقة.';
+   status.textContent=results.length?'عُثر على '+results.length+' نتيجة مطابقة.':'لا توجد نتائج مطابقة.';
    await render();
   }catch{if(current===request)status.textContent='تعذر تحميل البحث. أعد المحاولة بعد اكتمال تحميل الموقع.';}
  }

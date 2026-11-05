@@ -17,7 +17,7 @@ test('all source documents and sections have complete generated pages',()=>{
    const file='dist/documents/d'+d.id+'/s'+s.id+'/index.html';
    const html=readFileSync(file,'utf8');
    assert.ok(html.includes('<article class="prose panel" id="section-'+s.id+'">'+s.html+'</article>'),file);
-   assert.ok(toc.includes('/documents/d'+d.id+'/s'+s.id+'/'));
+   assert.ok(toc.includes('/documents/d'+d.id+(d.type==='book'?'/pages/p1/':'/s'+s.id+'/')));
    assert.match(html,/<html lang="ar" dir="rtl" data-visitor-locked>/u);
    assert.ok(s.text.trim());
   }
