@@ -63,6 +63,8 @@ if(document.querySelector('[data-paged-reader]'))document.addEventListener('keyd
  const link=direction&&document.querySelector('.page-turner [rel='+direction+']');
  if(link){event.preventDefault();location.assign(link.href);}
 });
+const pagedReader=document.querySelector('[data-paged-reader]');
+if(pagedReader)pagedReader.dataset.readerReady='true';
 const sidebar=document.querySelector('.book-sidebar');
 if(sidebar){
  const details=sidebar.querySelector('details'),current=sidebar.querySelector('[aria-current=page]');
