@@ -18,29 +18,21 @@ npm.cmd run preview
 
 الملفات الجاهزة للاستضافة داخل dist. يتحقق أمر البناء من HTML الآمن، وينشئ الصفحات والفهرس من جديد عند كل تعديل. يحدد SITE_BASE مسار مستودع GitHub Pages تلقائيًا في سير العمل، ويُستخدم المسار / للمعاينة المحلية.
 
-## أبسط خطوات النشر المجاني
+## الموقع المنشور والتحديث المجاني
 
-1. أنشئ مستودع GitHub **عامًا** باسم مثل written-library-public. تتوفر GitHub Pages مع GitHub Free للمستودعات العامة. راجع النصوص قبل رفعها لأن المستودع نفسه سيصبح عامًا. [توثيق GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
-2. ارفع مجلد هذا المشروع فقط. من PowerShell داخل المشروع شغّل الأوامر التالية بعد استبدال OWNER باسم حسابك. تأكد من أن المسار الحالي هو written-library-pages قبل تهيئة Git.
+- الموقع: [مكتبة الكلمة](https://bond86.github.io/written-library-public/).
+- المستودع العام: [Bond86/written-library-public](https://github.com/Bond86/written-library-public).
+- متابعة النشر: [GitHub Actions](https://github.com/Bond86/written-library-public/actions).
 
-```powershell
-git init
-git branch -M main
-git add .
-git commit -m "Add public Arabic written library"
-git remote add origin https://github.com/OWNER/written-library-public.git
-git push -u origin main
-```
+تم تفعيل **Settings → Pages → Source → GitHub Actions**. كل تعديل على main يعيد البناء والفهرسة والاختبار والنشر تلقائيًا. عند فشل الاختبارات لا تُنشر النسخة الجديدة، وتظل آخر نسخة منشورة متاحة. لا تحتاج إلى إنشاء المستودع أو تهيئة Git مرة أخرى. استخدم **Actions → Build and publish written library → Run workflow** لإعادة تشغيل النشر عند الحاجة.
 
-3. افتح **Settings → Pages → Source → GitHub Actions** في المستودع.
-4. من **Actions** افتح **Build and publish written library** ثم اختر **Run workflow**. يثبت سير العمل الأدوات، يبني الموقع والفهرس، يختبرهما ثم ينشر مجلد dist.
-5. افتح عنوان https://OWNER.github.io/written-library-public/ بعد نجاح النشر. كل تعديل لاحق على main يعيد البناء والاختبار والنشر تلقائيًا. طلبات المراجعة تُختبر قبل دمجها. [سير عمل GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+تتوفر GitHub Pages للمستودعات العامة على GitHub Free، ويستخدم المشروع مشغل ubuntu-latest القياسي المجاني للمستودعات العامة. لا يتطلب الاشتراك في أي خدمة مدفوعة. [توثيق GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)، [سير العمل](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 يرفع سير العمل مجلد dist وحده إلى Pages. تستثني قواعد Git المجلدات node_modules وaudit وtest-output وdist. الفهرس العام يحتوي على النص الأصلي اللازم للمقتطفات إلى جانب النص المطبع للبحث. المحتوى كله عام.
 
 ## تعديل المحتوى من دون تحرير HTML يدويًا
 
-1. شغّل npm.cmd run editor وافتح http://127.0.0.1:8091/tools/editor.html.
+1. افتح PowerShell داخل مجلد written-library-pages، وشغّل npm.cmd run editor وافتح http://127.0.0.1:8091/tools/editor.html. عند استخدام نسخة مستنسخة حديثًا شغّل npm.cmd ci ثم npm.cmd run build أولًا.
 2. داخل مجلد content افتح مجلد المادة مثل d544. من الأداة اختر ملف metadata.json، ثم افتح ملف القسم مثل s567.html. يمكن كتابة النص ولصقه من Word وتنسيق العناوين والقوائم والجداول.
 3. عدّل النص ثم اضغط **تنزيل القسم المعدّل**. ارفع الملف إلى المجلد نفسه في GitHub باستخدام **Add file → Upload files**، ووافق على استبدال الملف ذي الاسم نفسه. تجنب الأسماء التي يضيف إليها المتصفح (1).
 4. إذا عدّلت العنوان أو المؤلف أو النوع أو ترتيب الأقسام، اضغط **تنزيل بيانات المادة** وارفع metadata.json أيضًا. استخدم **إضافة قسم** لإضافة فصل أو قسم إلى كتاب، وارفع ملفه وبيانات المادة معًا.
