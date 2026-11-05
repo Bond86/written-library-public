@@ -18,7 +18,7 @@ test('all source documents and sections have complete generated pages',()=>{
    const html=readFileSync(file,'utf8');
    assert.ok(html.includes('<article class="prose panel" id="section-'+s.id+'">'+s.html+'</article>'),file);
    assert.ok(toc.includes('/documents/d'+d.id+'/s'+s.id+'/'));
-   assert.match(html,/<html lang="ar" dir="rtl">/u);
+   assert.match(html,/<html lang="ar" dir="rtl" data-visitor-locked>/u);
    assert.ok(s.text.trim());
   }
  }
@@ -52,7 +52,7 @@ test('only static public files are present in the deployment output',()=>{
    if(info.isDirectory()){scan(path);continue;}
    assert.ok(!/^\.env|\.sqlite|\.pem$|\.key$|\.map$|package-lock|metadata\.json/u.test(name),path);
    const b=readFileSync(path);bytes+=b.length;files++;
-   if(['.html','.js','.css','.json','.svg'].includes(extname(name)))assert.ok(!disallowed.test(b.toString('utf8')),path);
+   if(['.html','.js','.css','.json','.svg','.txt'].includes(extname(name)))assert.ok(!disallowed.test(b.toString('utf8')),path);
   }
  }
  scan('dist');

@@ -4,11 +4,19 @@ import {build} from 'esbuild';
 import {serve} from '../scripts/serve.mjs';
 import {browser} from './chrome.mjs';
 import {cleanHtml} from '../lib/text.mjs';
+import {createHash} from 'node:crypto';
 
 const base=JSON.parse(readFileSync('audit/build.json','utf8')).base;
+const realVerifier=JSON.parse(readFileSync('config/visitor-gate.json','utf8')).sha256;
+const testPhrase='synthetic-visitor-only';
+const testVerifier=createHash('sha256').update(testPhrase).digest('hex');
 const {outputFiles}=await build({stdin:{contents:"export {normalize} from './lib/text.mjs';export {presentResult} from './lib/search.mjs';",resolveDir:process.cwd()},write:false,bundle:true,format:'esm'});
 const fixture=cleanHtml('<h2>جدول عربي</h2><p><a href="#_ftn1">١</a></p><table><tr><th>العمود الأول</th><th>العمود الثاني</th></tr>'+Array.from({length:25},(_,i)=>'<tr><td>خلية عربية '+i+'</td><td><strong>إيمان</strong></td></tr>').join('')+'</table><p id="_ftn1">حاشية تجريبية</p><script>window.bad=true</script>').html;
 const server=await serve('dist',0,async(url,req,res)=>{
+ if([base+'__gate-test/',base+'__gate-test-next/'].includes(url.pathname)){
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
+  res.end(readFileSync('dist/index.html','utf8').replace('data-verifier="'+realVerifier+'"','data-verifier="'+testVerifier+'"'));return true;
+ }
  if(url.pathname===base+'__test-lib.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(outputFiles[0].text);return true;}
  if(url.pathname===base+'__editor-bundle.js'){res.writeHead(200,{'Content-Type':'text/javascript'});res.end(readFileSync('tools/editor.bundle.js'));return true;}
  if(url.pathname===base+'__editor/'){
@@ -30,9 +38,36 @@ const waitFor=async expression=>{
  throw Error('Browser condition timed out '+expression);
 };
 try{
+ await chrome.navigate(origin+base+'__gate-test/');
+ assert.ok(await chrome.evaluate('!document.querySelector("#visitor-gate").hidden&&document.querySelector("#site-content").hidden&&document.querySelector("#site-content").inert'));
+ assert.ok(await chrome.evaluate('!document.querySelector("#visitor-form button").disabled'));
+ const gateShot=await chrome.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+ writeFileSync('test-output/visitor-gate.png',Buffer.from(gateShot.data,'base64'));screenshots.push('visitor-gate.png');
+ await chrome.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ assert.ok(await chrome.evaluate('document.documentElement.scrollWidth<=innerWidth+1'));
+ const mobileGate=await chrome.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+ writeFileSync('test-output/visitor-gate-mobile.png',Buffer.from(mobileGate.data,'base64'));screenshots.push('visitor-gate-mobile.png');
+ await chrome.evaluate('document.querySelector("#visitor-passphrase").value="wrong-synthetic-code";document.querySelector("#visitor-form").requestSubmit()');
+ await waitFor('document.querySelector("#visitor-message").textContent.includes("غير صحيح")');
+ assert.ok(await chrome.evaluate('document.querySelector("#site-content").hidden&&document.querySelector("#visitor-passphrase").value===""'));
+ await chrome.evaluate('document.querySelector("#visitor-passphrase").value='+JSON.stringify(testPhrase)+';document.querySelector("#visitor-form").requestSubmit()');
+ await waitFor('document.querySelector("#visitor-gate").hidden');
+ assert.equal(await chrome.evaluate('localStorage.getItem("written-library-visitor:"+document.body.dataset.base)'),testVerifier);
+ await chrome.navigate(origin+base+'__gate-test-next/');
+ await waitFor('document.querySelector("#visitor-gate").hidden');
+ await chrome.evaluate('document.querySelector("[data-visitor-lock]").click()');
+ assert.ok(await chrome.evaluate('!document.querySelector("#visitor-gate").hidden&&localStorage.getItem("written-library-visitor:"+document.body.dataset.base)===null'));
+ await chrome.navigate(origin+base+'documents/d545/s584/');
+ assert.ok(await chrome.evaluate('!document.querySelector("#visitor-gate").hidden'));
+ // The real verifier is public: this intentional bypass illustrates the UI-only trust model.
+ await chrome.evaluate('localStorage.setItem("written-library-visitor:"+document.body.dataset.base,'+JSON.stringify(realVerifier)+')');
  await chrome.navigate(origin+base);
+ await waitFor('document.querySelector("#visitor-gate").hidden');
+ console.log('Visitor gate: wrong/right synthetic passphrase, remembered navigation, Lock and direct-reader gate passed.');
  const results=await chrome.evaluate("(async()=>{\n const base=document.body.dataset.base;\n const {normalize,presentResult}=await import(base+'__test-lib.js');\n const pf=await import(base+'pagefind/pagefind.js');\n await pf.options({baseUrl:base,excerptLength:24});\n const check=(ok,message)=>{if(!ok)throw Error(message);};\n const ids=async(q,options)=> (await pf.search(normalize(q),options)).results.map(r=>r.id).sort();\n for(const [a,b] of [['أب','اب'],['إيمان','ايمان'],['وُلدت','ولدت'],['الـكـتـاب','الكتاب'],['ٱلإيمان','الايمان'],['آدم','ادم']]){\n  const left=await ids(a),right=await ids(b);\n  check(left.length>0,'No real hits '+a);\n  check(JSON.stringify(left)===JSON.stringify(right),'Normalization differs '+a);\n }\n const q=await pf.search(normalize('\"صمت الدارسين عبرة\"'));\n check(q.results.length>0,'Long chapter phrase missing');\n const bodies=await Promise.all(q.results.map(r=>r.data()));\n const item=bodies.find(d=>d.url.includes('/d545/s584/'));\n check(item,'Expected section 584 missing');\n const display=presentResult(item);\n check(display.snippetHtml.includes('<mark>'),'Missing original-text highlight');\n check(display.anchor==='passage-91','Wrong phrase anchor '+display.anchor);\n check(display.snippetHtml.includes('الدارسين'),'Original snippet missing');\n const quote=await pf.search(normalize('\"توجيهات أب اعترافي\"'),{filters:{type:'book'}});\n check(quote.results.length>0,'Book quote missing');\n const found=await Promise.all(quote.results.map(r=>r.data()));\n check(found.every(d=>d.meta.type==='book'),'Type filter leaked');\n check(found.some(d=>presentResult(d).snippetHtml.includes('أب')),'Original Alef spelling missing');\n const excluded=await pf.search(normalize('\"توجيهات أب اعترافي\"'),{filters:{type:'article'}});\n check(excluded.results.length===0,'Book phrase appeared in articles');\n const title=await pf.search(normalize('\"كتاب بين العهدين\"'));\n check(title.results.length>=15,'Book title does not cover chapters');\n const authors=await pf.search(normalize('محاكمة البابا شنودة'));\n check(authors.results.length>0,'Multiword query missing');\n return {normalizationPairs:6,longPhraseSection:item.url,anchor:display.anchor,phraseResults:q.results.length,bookTitleResults:title.results.length};\n})()");
  console.log('Real Pagefind WASM tests '+JSON.stringify(results));
+ const recordCount=await chrome.evaluate('(async()=>{const pf=await import(document.body.dataset.base+"pagefind/pagefind.js");const filters=await pf.filters();return Object.values(filters.type).reduce((sum,n)=>sum+n,0);})()');
+ assert.equal(recordCount,661,'AI exports must not add duplicate Pagefind records');
  await chrome.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await chrome.navigate(origin+base+'search/?q='+encodeURIComponent('إيمان')+'&type=book');
  await waitFor('document.querySelectorAll(".search-hit").length>0');
